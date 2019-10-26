@@ -52,10 +52,13 @@ async def fetch(session, url):
 
 async def get_serps_response(paginated_urls):
     async with aiohttp.ClientSession() as session:
+        soups = []
         for serp_url_block in paginated_urls:
-            resp = await asyncio.gather(
+            responses = await asyncio.gather(
                 *[fetch(session, url) for url in serp_url_block])
-            return resp
+            soups.extend(
+                [BeautifulSoup(resp, 'html.parser') for resp in responses])
+        return soups
 
 
 def main():
@@ -84,8 +87,10 @@ def main():
             first_page_soup, num_of_results, CON_LIMIT)
         pprint(paginated_urls)
 
-        test = asyncio.run(get_serps_response(paginated_urls))
-        print(len(test))
+        soups = [first_page_soup]
+        soups.extend(asyncio.run(get_serps_response(paginated_urls)))
+
+        print(len(soups))
 
 
 if __name__ == '__main__':
