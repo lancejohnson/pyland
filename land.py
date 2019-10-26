@@ -1,10 +1,13 @@
 import os
 import requests
+import requests_cache
 from bs4 import BeautifulSoup
 # from multiprocessing import Pool
 from db import get_counties
 
 from pprint import pprint
+
+requests_cache.install_cache('default_cache')
 
 SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
 SCRAPERAPI_URL = 'http://api.scraperapi.com'
