@@ -1,14 +1,11 @@
 import os
 import requests
-import requests_cache
 from bs4 import BeautifulSoup
-# from multiprocessing import Pool
+from requests_threads import AsyncSession
 from db import get_counties
 import math
 
 from pprint import pprint
-
-requests_cache.install_cache('default_cache')
 
 SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
 SCRAPERAPI_URL = 'http://api.scraperapi.com'
@@ -22,7 +19,7 @@ def get_num_of_results(first_page_soup):
     return int(resultscount_list[5])
 
 
-def gen_paginated_urls(first_page_soup, num_of_results, page_1_url):
+def gen_paginated_urls(first_page_soup, num_of_results):
     paginated_urls = []
     if num_of_results > 15:
         num_of_pages = math.ceil(num_of_results / 15)
@@ -30,23 +27,29 @@ def gen_paginated_urls(first_page_soup, num_of_results, page_1_url):
             'a', {'rel': 'next'})['href'][:-1]
         for i in range(2, num_of_pages + 1):
             paginated_urls.append(f'{pagination_base_url}{i}')
-    else:
-        paginated_urls.append(page_1_url)
     return paginated_urls
 
 
 def main():
     counties = get_counties()
-    for county in counties[:2]:
+    for county in counties[1:3]:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
         )
         first_page_soup = BeautifulSoup(resp.content, 'html.parser')
+
         num_of_results = get_num_of_results(first_page_soup)
         paginated_urls = gen_paginated_urls(
             first_page_soup, num_of_results, county['landwatchurl'])
         pprint(paginated_urls)
+
+        resp_list = []
+        soups = []
+        soups.append(first_page_soup)
+        soups.extend(additional_soups)
+
+        pprint(len(soups))
 
 
 if __name__ == '__main__':
