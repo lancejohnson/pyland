@@ -64,10 +64,10 @@ async def get_serps_response(paginated_urls):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument(
-        "-c",
-        "--con_limit",
+        '-c',
+        '--con_limit',
         nargs=1,
-        help="Concurrency limit for requests.",
+        help='Concurrency limit for requests.',
         default=10
     )
 
