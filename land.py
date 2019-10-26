@@ -20,7 +20,7 @@ def get_num_of_results(first_page_soup):
     return int(resultscount_list[5])
 
 
-def gen_paginated_urls(first_page_soup, num_of_results, con_limit):
+def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
     paginated_urls = []
     if num_of_results > 15:
         num_of_pages = math.ceil(num_of_results / 15)
@@ -28,9 +28,8 @@ def gen_paginated_urls(first_page_soup, num_of_results, con_limit):
             'a', {'rel': 'next'})['href'][:-1]
         for i in range(2, num_of_pages + 1):
             paginated_urls.append(f'{pagination_base_url}{i}')
-        paginated_urls = [paginated_urls[i:i+con_limit]
-                          for i in range(0, len(paginated_urls), con_limit)]
-        pprint(paginated_urls)
+        paginated_urls = [paginated_urls[i:i+CON_LIMIT]
+                          for i in range(0, len(paginated_urls), CON_LIMIT)]
     return paginated_urls
 
 
@@ -45,7 +44,7 @@ def main():
     )
 
     args = p.parse_args(sys.argv[1:])
-    CONCURRENT_LIMIT = args.con_limit
+    CON_LIMIT = args.con_limit
 
     counties = get_counties()
     for county in counties[1:3]:
@@ -57,7 +56,7 @@ def main():
 
         num_of_results = get_num_of_results(first_page_soup)
         paginated_urls = gen_paginated_urls(
-            first_page_soup, num_of_results, CONCURRENT_LIMIT)
+            first_page_soup, num_of_results, CON_LIMIT)
         pprint(paginated_urls)
 
 
