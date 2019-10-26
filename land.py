@@ -5,6 +5,8 @@ import requests
 from bs4 import BeautifulSoup
 from db import get_counties
 import math
+import aiohttp
+import asyncio
 
 from pprint import pprint
 
@@ -33,6 +35,29 @@ def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
     return paginated_urls
 
 
+async def fetch(session, url):
+    SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
+    SCRAPERAPI_URL = 'http://api.scraperapi.com'
+    try:
+        async with session.get(
+                SCRAPERAPI_URL,
+                params={'api_key': SCRAPER_API_KEY, 'url': url}) as response:
+            return await response.text()
+            # print(url, datetime.datetime.now(), 'END')
+            # return res
+    except Exception as e:
+        print(url, e)
+        return None
+
+
+async def get_serps_response(paginated_urls):
+    async with aiohttp.ClientSession() as session:
+        for serp_url_block in paginated_urls:
+            resp = await asyncio.gather(
+                *[fetch(session, url) for url in serp_url_block])
+            return resp
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument(
@@ -58,6 +83,9 @@ def main():
         paginated_urls = gen_paginated_urls(
             first_page_soup, num_of_results, CON_LIMIT)
         pprint(paginated_urls)
+
+        test = asyncio.run(get_serps_response(paginated_urls))
+        print(len(test))
 
 
 if __name__ == '__main__':
