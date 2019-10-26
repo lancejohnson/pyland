@@ -1,7 +1,6 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from requests_threads import AsyncSession
 from db import get_counties
 import math
 
@@ -41,15 +40,8 @@ def main():
 
         num_of_results = get_num_of_results(first_page_soup)
         paginated_urls = gen_paginated_urls(
-            first_page_soup, num_of_results, county['landwatchurl'])
+            first_page_soup, num_of_results)
         pprint(paginated_urls)
-
-        resp_list = []
-        soups = []
-        soups.append(first_page_soup)
-        soups.extend(additional_soups)
-
-        pprint(len(soups))
 
 
 if __name__ == '__main__':
