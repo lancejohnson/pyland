@@ -1,4 +1,5 @@
 import os
+import re
 import argparse
 import sys
 import requests
@@ -80,11 +81,24 @@ def listing_parser(listing_soup):
 
     listing_dict = {}
     base_url = 'https://www.landwatch.com'
-    listing_dict['url'] = base_url + listing_soup.find('a')['href']
-    listing_dict['pid'] = int(listing_dict['url'][-7:])
+    listing_dict['url'] = base_url + \
+        listing_soup.find('div', {'class': 'propName'}).find('a')
+    listing_dict['pid'] = int(listing_dict['url'][-8:])
 
-    import pdb
-    pdb.set_trace()
+    acres = float(listing_soup.find(text=re.compile(r'Acre')).split('Acre')[0])
+    listing_dict['acres'] = acres if acres else 'NotPresent'
+    price = int(listing_soup.find('div', {'class': 'propName'}).text.split(
+        '$')[-1].strip().replace(',', ''))
+    listing_dict['price'] = price if price else 1
+
+    title_string = listing_soup.find(
+        'div', {'class': 'propName'}).text.split('$')[0].strip()
+    city = re.findall(r',?[a-zA-Z][a-zA-Z0-9]*,', title_string)
+    listing_dict['city'] = city[0].replace(
+        ',', '') if len(city) == 2 else 'NotPresent'
+
+    # Start Here.  State and County from the URL.  Description from
+    # this HTML block.
 
 
 def main():

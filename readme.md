@@ -5,6 +5,7 @@ This is built to aggregate raw land listings.  We extract the data and transform
 # TODOs
 
 - Logging, to see when failures occur
+- Add parameter to county urls to sort by newest
 
 # Structure
 
