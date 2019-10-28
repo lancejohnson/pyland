@@ -8,6 +8,7 @@ from db import get_counties
 import math
 import aiohttp
 import asyncio
+from datetime import datetime
 
 SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
 SCRAPERAPI_URL = 'http://api.scraperapi.com'
@@ -60,7 +61,7 @@ async def get_serps_response(paginated_urls):
         return soups
 
 
-def listing_parser(listing_soup):
+def listing_parser(listing_soup, county):
     '''This takes the soup for an individual property listing and transforms
     it into the following schema
      '''
@@ -75,21 +76,22 @@ def listing_parser(listing_soup):
         'office_name': 'First United Realty, Inc.',
         'office_url': 'https://www.landwatch.com/default.aspx?ct=r&type=146,157956',  # noqa: E501
         'office_status': 'Signature Partner',
-        'date_first_seen': datetime(2019, 10, 26, 20, 31, 32, 651887),
+        'date_first_seen': 'Oct 26, 2019',
         'price_per_acre': 17500.00  # this field is calculated
     }
 
     listing_dict = {}
     base_url = 'https://www.landwatch.com'
     listing_dict['url'] = base_url + \
-        listing_soup.find('div', {'class': 'propName'}).find('a')
+        listing_soup.find('div', {'class': 'propName'}).find('a')['href']
     listing_dict['pid'] = int(listing_dict['url'][-8:])
 
     acres = float(listing_soup.find(text=re.compile(r'Acre')).split('Acre')[0])
-    listing_dict['acres'] = acres if acres else 'NotPresent'
+    listing_dict['acres'] = acres if acres else 1
     price = int(listing_soup.find('div', {'class': 'propName'}).text.split(
         '$')[-1].strip().replace(',', ''))
     listing_dict['price'] = price if price else 1
+    listing_dict['price_per_acre'] = price/acres
 
     title_string = listing_soup.find(
         'div', {'class': 'propName'}).text.split('$')[0].strip()
@@ -97,8 +99,23 @@ def listing_parser(listing_soup):
     listing_dict['city'] = city[0].replace(
         ',', '') if len(city) == 2 else 'NotPresent'
 
-    # Start Here.  State and County from the URL.  Description from
-    # this HTML block.
+    description = listing_soup.find(
+        'div', {'class': 'description'}).text.strip()
+    listing_dict['description'] = description if description else 'NotPresen'
+
+    listing_dict['county'] = county['county']
+    listing_dict['state'] = county['stateabbr']
+
+    office_name = listing_soup.find('a', {'class': 'officename'}).text
+    listing_dict['officename'] = office_name if office_name else 'NotPresent'
+    office_url = base_url + \
+        listing_soup.find('a', {'class': 'officename'})['href']
+    listing_dict['officeurl'] = office_url if office_url else 'NotPresent'
+    office_status = listing_soup.find(
+        'div', {'class': 'propertyAgent'}).text.strip().split('\n')[1].strip()
+    listing_dict['officestatus'] = office_status if office_status else 'Blank'
+
+    listing_dict['date_first_seen'] = datetime.now().date()
 
 
 def main():
@@ -132,7 +149,7 @@ def main():
         for soup in soups:
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
-                listing_parser(listing_soup)
+                listing_parser(listing_soup, county)
 
 
 if __name__ == '__main__':
