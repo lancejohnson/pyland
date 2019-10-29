@@ -84,7 +84,7 @@ def listing_parser(listing_soup, county):
     base_url = 'https://www.landwatch.com'
     listing_dict['url'] = base_url + \
         listing_soup.find('div', {'class': 'propName'}).find('a')['href']
-    listing_dict['pid'] = int(listing_dict['url'][-8:])
+    listing_dict['pid'] = int(listing_dict['url'].split('/')[-1])
 
     acres = float(listing_soup.find(text=re.compile(r'Acre')).split('Acre')[0])
     listing_dict['acres'] = acres if acres else 1
@@ -100,20 +100,27 @@ def listing_parser(listing_soup, county):
         ',', '') if len(city) == 2 else 'NotPresent'
 
     description = listing_soup.find(
-        'div', {'class': 'description'}).text.strip()
-    listing_dict['description'] = description if description else 'NotPresen'
+        'div', {'class': 'description'})
+    listing_dict['description'] = description.text.strip(
+    ) if description else 'NotPresent'
 
     listing_dict['county'] = county['county']
     listing_dict['state'] = county['stateabbr']
 
-    office_name = listing_soup.find('a', {'class': 'officename'}).text
-    listing_dict['officename'] = office_name if office_name else 'NotPresent'
-    office_url = base_url + \
-        listing_soup.find('a', {'class': 'officename'})['href']
-    listing_dict['officeurl'] = office_url if office_url else 'NotPresent'
+    office_name = listing_soup.find('a', {'class': 'officename'})
+    listing_dict['officename'] = office_name.text if office_name else 'NotPresent'
+
+    office_rel_url_bs = listing_soup.find('a', {'class': 'officename'})
+    if office_rel_url_bs:
+        office_url = base_url + office_rel_url_bs['href']
+        listing_dict['officeurl'] = office_url
+    else:
+        listing_dict['officeurl'] = 'NotPresent'
+
     office_status = listing_soup.find(
-        'div', {'class': 'propertyAgent'}).text.strip().split('\n')[1].strip()
-    listing_dict['officestatus'] = office_status if office_status else 'Blank'
+        'div', {'class': 'propertyAgent'})
+    listing_dict['officestatus'] = office_status.text.strip().split(
+        '\n')[1].strip() if office_status else 'Blank'
 
     listing_dict['date_first_seen'] = datetime.now().date()
 
@@ -150,6 +157,9 @@ def main():
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
                 listing_parser(listing_soup, county)
+
+    import pdb
+    pdb.set_trace()
 
 
 if __name__ == '__main__':
