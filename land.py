@@ -20,7 +20,7 @@ def get_num_of_results(first_page_soup):
         'span', {'class': 'resultscount'}).text.split('\xa0')
     # Quest: why does this kind of soup yield characters like
     # '\xa0' when I use soup.text?
-    return int(resultscount_list[5])
+    return int(resultscount_list[5].replace(',', ''))
 
 
 def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
