@@ -1,3 +1,4 @@
+import csv
 import os
 import re
 import argparse
@@ -86,43 +87,65 @@ def listing_parser(listing_soup, county):
         listing_soup.find('div', {'class': 'propName'}).find('a')['href']
     listing_dict['pid'] = int(listing_dict['url'].split('/')[-1])
 
-    acres = float(listing_soup.find(text=re.compile(r'Acre')).split('Acre')[0])
-    listing_dict['acres'] = acres if acres else 1
-    price = int(listing_soup.find('div', {'class': 'propName'}).text.split(
-        '$')[-1].strip().replace(',', ''))
-    listing_dict['price'] = price if price else 1
-    listing_dict['price_per_acre'] = price/acres
+    try:
+        acre_soup = listing_soup.find(text=re.compile(r'Acre'))
+        if acre_soup:
+            acres = float(acre_soup.split('Acre')[0])
+            listing_dict['acres'] = acres
+        else:
+            listing_dict['acres'] = 1
+        price_soup = listing_soup.find('div', {'class': 'propName'})
+        if price_soup:
+            price = int(price_soup.text.split(
+                '$')[-1].strip().replace(',', ''))
+            listing_dict['price'] = price
+        else:
+            listing_dict['price'] = 1
+        listing_dict['price_per_acre'] = listing_dict['price'] / \
+            listing_dict['acres']
 
-    title_string = listing_soup.find(
-        'div', {'class': 'propName'}).text.split('$')[0].strip()
-    city = re.findall(r',?[a-zA-Z][a-zA-Z0-9]*,', title_string)
-    listing_dict['city'] = city[0].replace(
-        ',', '') if len(city) == 2 else 'NotPresent'
+        title_soup = listing_soup.find(
+            'div', {'class': 'propName'})
+        if title_soup:
+            title_string = title_soup.text.split('$')[0].strip()
+            city = re.findall(r',?[a-zA-Z][a-zA-Z0-9]*,', title_string)
+            listing_dict['city'] = city[0].replace(
+                ',', '') if len(city) == 2 else 'NotPresent'
+        else:
+            listing_dict['city'] = 'NotPresent'
+        description = listing_soup.find(
+            'div', {'class': 'description'})
+        listing_dict['description'] = description.text.strip(
+        ) if description else 'NotPresent'
 
-    description = listing_soup.find(
-        'div', {'class': 'description'})
-    listing_dict['description'] = description.text.strip(
-    ) if description else 'NotPresent'
+        listing_dict['county'] = county['county']
+        listing_dict['state'] = county['stateabbr']
 
-    listing_dict['county'] = county['county']
-    listing_dict['state'] = county['stateabbr']
+        office_name = listing_soup.find('a', {'class': 'officename'})
+        listing_dict['officename'] = office_name.text if office_name else 'NotPresent'  # noqa: E501
 
-    office_name = listing_soup.find('a', {'class': 'officename'})
-    listing_dict['officename'] = office_name.text if office_name else 'NotPresent'
+        office_rel_url_bs = listing_soup.find('a', {'class': 'officename'})
+        if office_rel_url_bs:
+            office_url = base_url + office_rel_url_bs['href']
+            listing_dict['officeurl'] = office_url
+        else:
+            listing_dict['officeurl'] = 'NotPresent'
 
-    office_rel_url_bs = listing_soup.find('a', {'class': 'officename'})
-    if office_rel_url_bs:
-        office_url = base_url + office_rel_url_bs['href']
-        listing_dict['officeurl'] = office_url
-    else:
-        listing_dict['officeurl'] = 'NotPresent'
+        office_status = listing_soup.find(
+            'div', {'class': 'propertyAgent'})
+        listing_dict['officestatus'] = office_status.text.strip().split(
+            '\n')[1].strip() if office_status else 'Blank'
 
-    office_status = listing_soup.find(
-        'div', {'class': 'propertyAgent'})
-    listing_dict['officestatus'] = office_status.text.strip().split(
-        '\n')[1].strip() if office_status else 'Blank'
+        listing_dict['date_first_seen'] = datetime.now().date()
+    except Exception:
+        listing_dict['acres'] = 'Error'
+    return listing_dict
 
-    listing_dict['date_first_seen'] = datetime.now().date()
+
+def write_to_csv(dict):
+    with open('mycsvfile.csv', 'a') as f:
+        w = csv.DictWriter(f, dict.keys())
+        w.writerow(dict)
 
 
 def main():
@@ -139,7 +162,7 @@ def main():
     CON_LIMIT = args.con_limit
 
     counties = get_counties()
-    for county in counties[1:3]:
+    for county in counties:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
@@ -156,10 +179,8 @@ def main():
         for soup in soups:
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
-                listing_parser(listing_soup, county)
-
-    import pdb
-    pdb.set_trace()
+                listing_dict = listing_parser(listing_soup, county)
+                write_to_csv(listing_dict)
 
 
 if __name__ == '__main__':
