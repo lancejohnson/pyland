@@ -7,8 +7,10 @@ import requests
 from bs4 import BeautifulSoup
 from db import get_counties
 import math
-import aiohttp
+import httpx
 import asyncio
+import aiohttp
+from urllib.parse import quote
 from datetime import datetime
 
 SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
@@ -16,11 +18,15 @@ SCRAPERAPI_URL = 'http://api.scraperapi.com'
 
 
 def get_num_of_results(first_page_soup):
-    resultscount_list = first_page_soup.find(
-        'span', {'class': 'resultscount'}).text.split('\xa0')
+    resultscount_list_soup = first_page_soup.find(
+        'span', {'class': 'resultscount'})
+    if resultscount_list_soup:
+        resultscount_list = resultscount_list_soup.text.split('\xa0')
     # Quest: why does this kind of soup yield characters like
     # '\xa0' when I use soup.text?
-    return int(resultscount_list[5].replace(',', ''))
+        return int(resultscount_list[5].replace(',', ''))
+    else:
+        return 1
 
 
 def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
@@ -36,27 +42,28 @@ def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
     return paginated_urls
 
 
-async def fetch(session, url):
+async def fetch(url):
     SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
     SCRAPERAPI_URL = 'http://api.scraperapi.com'
+    encoded_url = quote(url)
+    # Construct URL manually instead of using params because
+    # aiohttp seems to have a bug quoting the URL.
+    final_url = f'{SCRAPERAPI_URL}/?api_key={SCRAPER_API_KEY}&url={encoded_url}'
     try:
-        async with session.get(
-                SCRAPERAPI_URL,
-                params={'api_key': SCRAPER_API_KEY, 'url': url}) as response:
-            return await response.text()
-            # print(url, datetime.datetime.now(), 'END')
-            # return res
+        async with httpx.AsyncClient() as client:
+            r = await client.get(final_url)
+            return r.text
     except Exception as e:
         print(url, e)
         return None
 
 
 async def get_serps_response(paginated_urls):
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession():
         soups = []
         for serp_url_block in paginated_urls:
             responses = await asyncio.gather(
-                *[fetch(session, url) for url in serp_url_block])
+                *[fetch(url) for url in serp_url_block])
             soups.extend(
                 [BeautifulSoup(resp, 'html.parser') for resp in responses])
         return soups
@@ -86,7 +93,6 @@ def listing_parser(listing_soup, county):
     listing_dict['url'] = base_url + \
         listing_soup.find('div', {'class': 'propName'}).find('a')['href']
     listing_dict['pid'] = int(listing_dict['url'].split('/')[-1])
-
     try:
         acre_soup = listing_soup.find(text=re.compile(r'Acre'))
         if acre_soup:
@@ -110,31 +116,31 @@ def listing_parser(listing_soup, county):
             title_string = title_soup.text.split('$')[0].strip()
             city = re.findall(r',?[a-zA-Z][a-zA-Z0-9]*,', title_string)
             listing_dict['city'] = city[0].replace(
-                ',', '') if len(city) == 2 else 'NotPresent'
+                ',', '') if len(city) == 2 else 'CityNotPresent'
         else:
             listing_dict['city'] = 'NotPresent'
         description = listing_soup.find(
             'div', {'class': 'description'})
         listing_dict['description'] = description.text.strip(
-        ) if description else 'NotPresent'
+        ) if description else 'DescNotPresent'
 
         listing_dict['county'] = county['county']
         listing_dict['state'] = county['stateabbr']
 
         office_name = listing_soup.find('a', {'class': 'officename'})
-        listing_dict['officename'] = office_name.text if office_name else 'NotPresent'  # noqa: E501
+        listing_dict['officename'] = office_name.text if office_name else 'OfficeNameNotPresent'  # noqa: E501
 
         office_rel_url_bs = listing_soup.find('a', {'class': 'officename'})
         if office_rel_url_bs:
             office_url = base_url + office_rel_url_bs['href']
             listing_dict['officeurl'] = office_url
         else:
-            listing_dict['officeurl'] = 'NotPresent'
+            listing_dict['officeurl'] = 'OfficeURLNotPresent'
 
         office_status = listing_soup.find(
             'div', {'class': 'propertyAgent'})
         listing_dict['officestatus'] = office_status.text.strip().split(
-            '\n')[1].strip() if office_status else 'Blank'
+            '\n')[1].strip() if office_status else 'OfficeStatusBlank'
 
         listing_dict['date_first_seen'] = datetime.now().date()
     except Exception:
@@ -143,12 +149,13 @@ def listing_parser(listing_soup, county):
 
 
 def write_to_csv(dict):
-    with open('mycsvfile.csv', 'a') as f:
+    with open('template.csv', 'a') as f:
         w = csv.DictWriter(f, dict.keys())
         w.writerow(dict)
 
 
 def main():
+    counter = 0
     p = argparse.ArgumentParser()
     p.add_argument(
         '-c',
@@ -162,25 +169,34 @@ def main():
     CON_LIMIT = args.con_limit
 
     counties = get_counties()
-    for county in counties:
+    # counties = [
+    #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Cullman_County/Land',  # noqa: E501
+    #      'stateandcounty': 'AL-Cullman_County', 'county': 'Cullman_County', 'stateabbr': 'AL'},
+    #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Dale_County/Land',  # noqa: E501
+    #      'stateandcounty': 'AL-Dale_County', 'county': 'Dale_County', 'stateabbr': 'AL'}
+    #     ]
+    for county in counties[999:1000]:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
         )
         first_page_soup = BeautifulSoup(resp.content, 'html.parser')
-
+        state_and_county = county['stateandcounty']
         num_of_results = get_num_of_results(first_page_soup)
-        paginated_urls = gen_paginated_urls(
+
+        print(f'{state_and_county} Start - {num_of_results} listings')
+        paginated_url_blocks = gen_paginated_urls(
             first_page_soup, num_of_results, CON_LIMIT)
-
         soups = [first_page_soup]
-        soups.extend(asyncio.run(get_serps_response(paginated_urls)))
-
+        soups.extend(asyncio.run(get_serps_response(paginated_url_blocks)))
         for soup in soups:
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
                 listing_dict = listing_parser(listing_soup, county)
                 write_to_csv(listing_dict)
+                counter += 1
+
+        print(f'{state_and_county} complete - {counter} total listings')
 
 
 if __name__ == '__main__':
