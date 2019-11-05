@@ -1,12 +1,16 @@
 import psycopg2
 import psycopg2.extras
+import os
+
+PYLAND_DB_USER = os.environ.get('PYLAND_DB_USER', '')
+PYLAND_DB_PWD = os.environ.get('PYLAND_DB_PWD', '')
 
 
 def get_counties():
     try:
         connection = psycopg2.connect(
-            user="ogekefee",
-            password="RRCJUJghb7CStaFmq3oApLSbDusYAW3y",
+            user=PYLAND_DB_USER,
+            password=PYLAND_DB_PWD,
             host="salt.db.elephantsql.com",
             port="5432",
             database="ogekefee")
