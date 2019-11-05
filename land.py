@@ -5,7 +5,7 @@ import argparse
 import sys
 import requests
 from bs4 import BeautifulSoup
-from db import get_counties
+from db import get_counties, write_listing
 import math
 import httpx
 import asyncio
@@ -90,9 +90,9 @@ def listing_parser(listing_soup, county):
 
     listing_dict = {}
     base_url = 'https://www.landwatch.com'
-    listing_dict['url'] = base_url + \
+    listing_dict['listing_url'] = base_url + \
         listing_soup.find('div', {'class': 'propName'}).find('a')['href']
-    listing_dict['pid'] = int(listing_dict['url'].split('/')[-1])
+    listing_dict['pid'] = int(listing_dict['listing_url'].split('/')[-1])
     try:
         acre_soup = listing_soup.find(text=re.compile(r'Acre'))
         if acre_soup:
@@ -128,18 +128,18 @@ def listing_parser(listing_soup, county):
         listing_dict['state'] = county['stateabbr']
 
         office_name = listing_soup.find('a', {'class': 'officename'})
-        listing_dict['officename'] = office_name.text if office_name else 'OfficeNameNotPresent'  # noqa: E501
+        listing_dict['office_name'] = office_name.text if office_name else 'OfficeNameNotPresent'  # noqa: E501
 
         office_rel_url_bs = listing_soup.find('a', {'class': 'officename'})
         if office_rel_url_bs:
             office_url = base_url + office_rel_url_bs['href']
-            listing_dict['officeurl'] = office_url
+            listing_dict['office_url'] = office_url
         else:
-            listing_dict['officeurl'] = 'OfficeURLNotPresent'
+            listing_dict['office_url'] = 'OfficeURLNotPresent'
 
         office_status = listing_soup.find(
             'div', {'class': 'propertyAgent'})
-        listing_dict['officestatus'] = office_status.text.strip().split(
+        listing_dict['office_status'] = office_status.text.strip().split(
             '\n')[1].strip() if office_status else 'OfficeStatusBlank'
 
         listing_dict['date_first_seen'] = datetime.now().date()
@@ -193,7 +193,8 @@ def main():
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
                 listing_dict = listing_parser(listing_soup, county)
-                write_to_csv(listing_dict)
+                # write_to_csv(listing_dict)
+                write_listing(listing_dict)
                 counter += 1
 
         print(f'{state_and_county} complete - {counter} total listings')

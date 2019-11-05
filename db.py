@@ -49,7 +49,6 @@ def write_listing(listing_dict):
         if connection:
             cursor.close()
             connection.close()
-            print("PostgreSQL connection is closed")
 
 
 def get_counties():
