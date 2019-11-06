@@ -174,7 +174,7 @@ def main():
     #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Dale_County/Land',  # noqa: E501
     #      'stateandcounty': 'AL-Dale_County', 'county': 'Dale_County', 'stateabbr': 'AL'}
     #     ]
-    for county in counties[10:]:
+    for county in counties[28:29]:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
