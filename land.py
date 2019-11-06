@@ -12,7 +12,9 @@ import asyncio
 import aiohttp
 from urllib.parse import quote
 from datetime import datetime
+from tenacity import retry, stop_after_attempt
 
+MAX_RETRIES_COUNT = 10
 SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
 SCRAPERAPI_URL = 'http://api.scraperapi.com'
 
@@ -42,20 +44,18 @@ def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
     return paginated_urls
 
 
+@retry(stop=stop_after_attempt(MAX_RETRIES_COUNT))
 async def fetch(url):
-    SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
+    SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY',
+                                     '')
     SCRAPERAPI_URL = 'http://api.scraperapi.com'
     encoded_url = quote(url)
     # Construct URL manually instead of using params because
     # aiohttp seems to have a bug quoting the URL.
     final_url = f'{SCRAPERAPI_URL}/?api_key={SCRAPER_API_KEY}&url={encoded_url}'
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.get(final_url)
-            return r.text
-    except Exception as e:
-        print(url, e)
-        return None
+    async with httpx.AsyncClient() as client:
+        r = await client.get(final_url)
+        return r.text
 
 
 async def get_serps_response(paginated_urls):
@@ -64,8 +64,7 @@ async def get_serps_response(paginated_urls):
         for serp_url_block in paginated_urls:
             responses = await asyncio.gather(
                 *[fetch(url) for url in serp_url_block])
-            soups.extend(
-                [BeautifulSoup(resp, 'html.parser') for resp in responses])
+            soups.extend([BeautifulSoup(resp, 'html.parser') for resp in responses])
         return soups
 
 
@@ -175,7 +174,7 @@ def main():
     #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Dale_County/Land',  # noqa: E501
     #      'stateandcounty': 'AL-Dale_County', 'county': 'Dale_County', 'stateabbr': 'AL'}
     #     ]
-    for county in counties[999:1000]:
+    for county in counties[10:]:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
@@ -197,7 +196,7 @@ def main():
                 write_listing(listing_dict)
                 counter += 1
 
-        print(f'{state_and_county} complete - {counter} total listings')
+        print(f'{state_and_county} complete\nTotal listings: {counter}')
 
 
 if __name__ == '__main__':
