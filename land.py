@@ -174,6 +174,10 @@ def main():
     #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Dale_County/Land',  # noqa: E501
     #      'stateandcounty': 'AL-Dale_County', 'county': 'Dale_County', 'stateabbr': 'AL'}
     #     ]
+    # counties = [
+    #     {"landwatchurl": "https://www.landwatch.com/New_York_land_for_sale/Oneida_County/Land",
+    #         "stateandcounty": "NY-Oneida_County", "county": "Oneida_County", "stateabbr": "NY"}
+    # ]
     for county in counties[28:29]:
         resp = requests.get(
             SCRAPERAPI_URL,
