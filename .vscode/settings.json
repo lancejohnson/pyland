@@ -1,5 +1,6 @@
 {
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Enabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "python.pythonPath": "/Users/work/Dropbox/Projects/Finished/pyland/venv/bin/python3.7"
 }

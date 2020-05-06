@@ -5,7 +5,7 @@ import argparse
 import sys
 import requests
 from bs4 import BeautifulSoup
-from db import get_counties, write_listing
+from db import get_counties  # , write_listing  enable if you want to use a DB instead of CSV
 import math
 import httpx
 import asyncio
@@ -36,7 +36,7 @@ def gen_paginated_urls(first_page_soup, num_of_results, CON_LIMIT):
     if num_of_results > 15:
         num_of_pages = math.ceil(num_of_results / 15)
         pagination_base_url = first_page_soup.find(
-            'a', {'rel': 'next'})['href'][:-1]
+            'link', {'rel': 'next'})['href'][:-1]
         for i in range(2, num_of_pages + 1):
             paginated_urls.append(f'{pagination_base_url}{i}')
         paginated_urls = [paginated_urls[i:i+CON_LIMIT]
@@ -174,11 +174,11 @@ def main():
     #     {'landwatchurl': 'https://www.landwatch.com/Alabama_land_for_sale/Dale_County/Land',  # noqa: E501
     #      'stateandcounty': 'AL-Dale_County', 'county': 'Dale_County', 'stateabbr': 'AL'}
     #     ]
-    # counties = [
-    #     {"landwatchurl": "https://www.landwatch.com/New_York_land_for_sale/Oneida_County/Land",
-    #         "stateandcounty": "NY-Oneida_County", "county": "Oneida_County", "stateabbr": "NY"}
-    # ]
-    for county in counties[28:29]:
+    counties = [
+        {"landwatchurl": "https://www.landwatch.com/Oklahoma_land_for_sale/Osage_County/Land",
+            "stateandcounty": "OK-Osage_County", "county": "Osage_County", "stateabbr": "OK"}
+    ]
+    for county in counties:
         resp = requests.get(
             SCRAPERAPI_URL,
             {'api_key': SCRAPER_API_KEY, 'url': county['landwatchurl']}
@@ -196,8 +196,8 @@ def main():
             listings_soup_list = soup.select('div.result')
             for listing_soup in listings_soup_list:
                 listing_dict = listing_parser(listing_soup, county)
-                # write_to_csv(listing_dict)
-                write_listing(listing_dict)
+                write_to_csv(listing_dict)
+                # write_listing(listing_dict)
                 counter += 1
 
         print(f'{state_and_county} complete\nTotal listings: {counter}')
