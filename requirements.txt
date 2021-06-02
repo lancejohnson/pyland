@@ -26,5 +26,5 @@ six==1.14.0
 sniffio==1.1.0
 soupsieve==2.0
 tenacity==6.2.0
-urllib3==1.25.9
+urllib3==1.26.5
 yarl==1.4.2
